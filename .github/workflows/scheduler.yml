@@ -1,0 +1,31 @@
+name: Automated Competition Scraper
+
+on:
+  schedule:
+    # Runs automatically every 2 weeks (on the 1st and 15th of every month at midnight)
+    - cron: '0 0 1,15 * *'
+  workflow_dispatch: # Allows you to run it manually anytime from GitHub
+
+jobs:
+  run-scraper:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install google-genai supabase requests
+
+      - name: Run main script
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python main.py
