@@ -1,27 +1,28 @@
 import json
 import os
+import time
 from google import genai
+from google.genai.errors import ServerError
 from supabase import create_client
 
 # ==========================================
 # 1. CREDENTIALS CONFIGURATION
 # ==========================================
-# Retrieve credentials from Environment Variables for security
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY") # Using the Secret Key
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 
-# Initialize Gemini and Supabase clients
 ai_client = genai.Client(api_key=GEMINI_API_KEY)
 db_client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def fetch_and_filter_competitions():
-    print("🤖 Starting the automated search and AI filtering process...")
 
-    # ==========================================
-    # 2. STRICT PROMPT FOR THE AI
-    # ==========================================
-    prompt = """
+def fetch_and_filter_competitions():
+  print("🤖 Starting the automated search and AI filtering process...")
+
+  # ==========================================
+  # 2. STRICT PROMPT FOR THE AI
+  # ==========================================
+  prompt = """
     Search and provide information regarding the latest academic competitions, hackathons, 
     or events currently open or opening soon in Saudi Arabia specifically for active 
     Undergraduate students in Computer Science, Science, or Engineering faculties.
@@ -44,31 +45,47 @@ def fetch_and_filter_competitions():
     Ensure the output contains ONLY pure JSON text without any markdown formatting or extra characters.
     """
 
-    # Call the Gemini model (using gemini-2.5-flash for speed and efficiency)
-    response = ai_client.models.generate_content(
-        model="gemini-3.8-flash", contents=prompt
-    )
-
-    # Clean the AI text response to ensure it's pure JSON
-    raw_text = response.text.strip()
-    if raw_text.startswith("```json"):
-        raw_text = raw_text[7:-3].strip()
-
+  # ==========================================
+  # 3. AI CALL WITH AUTOMATIC RETRY (Handles 503)
+  # ==========================================
+  response = None
+  max_retries = 3
+  for attempt in range(max_retries):
     try:
-        competitions_data = json.loads(raw_text)
-        print(f"✅ AI successfully filtered {len(competitions_data)} competitions.")
-    except json.JSONDecodeError:
-        print("❌ Failed to parse JSON from AI response. Raw text:")
-        print(raw_text)
-        return
+      print(f"🤖 Calling Gemini AI (Attempt {attempt + 1}/{max_retries})...")
+      response = ai_client.models.generate_content(
+          model="gemini-3.8-flash", contents=prompt
+      )
+      break  # Success! Exit loop
+    except ServerError as e:
+      if "503" in str(e) and attempt < max_retries - 1:
+        print(
+            "⚠️ Model experiencing high demand (503). Retrying in 10 seconds..."
+        )
+        time.sleep(10)
+      else:
+        raise e
 
-    # ==========================================
-    # 3. SAVE DATA TO SUPABASE DATABASE
-    # ==========================================
-    for item in competitions_data:
-        # Insert data into the 'competitions' table we created
-        response_db = db_client.table("competitions").insert(item).execute()
-        print(f"💾 Saved to database: {item.get('title')}")
+  # Clean the AI text response to ensure it's pure JSON
+  raw_text = response.text.strip()
+  if raw_text.startswith("```json"):
+    raw_text = raw_text[7:-3].strip()
+
+  try:
+    competitions_data = json.loads(raw_text)
+    print(f"✅ AI successfully filtered {len(competitions_data)} competitions.")
+  except json.JSONDecodeError:
+    print("❌ Failed to parse JSON from AI response. Raw text:")
+    print(raw_text)
+    return
+
+  # ==========================================
+  # 4. SAVE DATA TO SUPABASE DATABASE
+  # ==========================================
+  for item in competitions_data:
+    response_db = db_client.table("competitions").insert(item).execute()
+    print(f"💾 Saved to database: {item.get('title')}")
+
 
 if __name__ == "__main__":
-    fetch_and_filter_competitions()
+  fetch_and_filter_competitions()
