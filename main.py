@@ -48,36 +48,42 @@ def fetch_and_filter_competitions():
   # ==========================================
   # 3. AI CALL WITH AUTOMATIC RETRY (Handles 503)
   # ==========================================
-  response = None
-  max_retries = 3
-  for attempt in range(max_retries):
-    try:
-      print(f"🤖 Calling Gemini AI (Attempt {attempt + 1}/{max_retries})...")
-      response = ai_client.models.generate_content(
-          model="gemini-3.8-flash", contents=prompt
+    models_to_try = ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.0-flash"]
+    response = None
+    success = False
+
+    for model_name in models_to_try:
+      if success:
+        break
+      max_retries = 3
+      for attempt in range(max_retries):
+        try:
+          print(
+              f"🤖 Calling Gemini AI using {model_name} (Attempt {attempt + 1}"
+              f"/{max_retries})..."
+          )
+          response = ai_client.models.generate_content(
+              model=model_name, contents=prompt
+          )
+          success = True
+          break  # Success! Exit retry loop
+        except ServerError as e:
+          if "503" in str(e) and attempt < max_retries - 1:
+            wait_time = (attempt + 1) * 15  # 15s, then 30s wait
+            print(
+                f"⚠️ Model {model_name} busy (503). Retrying in {wait_time}"
+                " seconds..."
+            )
+            time.sleep(wait_time)
+          else:
+            print(f"⚠️ Model {model_name} failed. Trying next available model...")
+            break
+
+    if not response:
+      raise Exception(
+          "❌ All backup Gemini models are currently experiencing high demand"
+          " (503). Please try again later."
       )
-      break  # Success! Exit loop
-    except ServerError as e:
-      if "503" in str(e) and attempt < max_retries - 1:
-        print(
-            "⚠️ Model experiencing high demand (503). Retrying in 10 seconds..."
-        )
-        time.sleep(10)
-      else:
-        raise e
-
-  # Clean the AI text response to ensure it's pure JSON
-  raw_text = response.text.strip()
-  if raw_text.startswith("```json"):
-    raw_text = raw_text[7:-3].strip()
-
-  try:
-    competitions_data = json.loads(raw_text)
-    print(f"✅ AI successfully filtered {len(competitions_data)} competitions.")
-  except json.JSONDecodeError:
-    print("❌ Failed to parse JSON from AI response. Raw text:")
-    print(raw_text)
-    return
 
   # ==========================================
   # 4. SAVE DATA TO SUPABASE DATABASE
