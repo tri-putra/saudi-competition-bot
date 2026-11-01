@@ -26,12 +26,12 @@ def fetch_and_filter_competitions():
     Search and provide information regarding the latest academic competitions, hackathons, 
     or events currently open or opening soon in Saudi Arabia specifically for active 
     Undergraduate students in Computer Science, Science, or Engineering faculties.
-
+    
     Mandatory Criteria:
     1. Target Audience: Undergraduate students.
     2. Field: Computer Science, Science, or Engineering.
     3. Location: Saudi Arabia (either on-site at Saudi universities or online open to students there).
-
+    
     Provide the output in a pure JSON format as an array of objects. 
     Each object MUST have keys matching these exact names:
     - "title" (string)
@@ -41,7 +41,7 @@ def fetch_and_filter_competitions():
     - "registration_link" (string)
     - "summary" (string)
     - "location" (string)
-
+    
     Ensure the output contains ONLY pure JSON text without any markdown formatting or extra characters.
     """
 
@@ -70,7 +70,7 @@ def fetch_and_filter_competitions():
             model=model_name, contents=prompt
         )
         success = True
-        break  # Success! Exit retry loop
+        break
       except ServerError as e:
         if "503" in str(e) and attempt < max_retries - 1:
           wait_time = (attempt + 1) * 15
@@ -91,7 +91,6 @@ def fetch_and_filter_competitions():
         " demand (503). Please try again later."
     )
 
-  # Clean the AI text response to ensure it's pure JSON
   raw_text = response.text.strip()
   if raw_text.startswith("```json"):
     raw_text = raw_text[7:-3].strip()
@@ -99,8 +98,7 @@ def fetch_and_filter_competitions():
   try:
     competitions_data = json.loads(raw_text)
     print(
-        "✅ AI successfully filtered"
-        f" {len(competitions_data)} competitions."
+        f"✅ AI successfully filtered {len(competitions_data)} competitions."
     )
   except json.JSONDecodeError:
     print("❌ Failed to parse JSON from AI response. Raw text:")
@@ -116,4 +114,4 @@ def fetch_and_filter_competitions():
 
 
 if __name__ == "__main__":
-  fetch_and_filter_competitions() 
+  fetch_and_filter_competitions()
