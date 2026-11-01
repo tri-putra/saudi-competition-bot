@@ -26,12 +26,12 @@ def fetch_and_filter_competitions():
     Search and provide information regarding the latest academic competitions, hackathons, 
     or events currently open or opening soon in Saudi Arabia specifically for active 
     Undergraduate students in Computer Science, Science, or Engineering faculties.
-    
+
     Mandatory Criteria:
     1. Target Audience: Undergraduate students.
     2. Field: Computer Science, Science, or Engineering.
     3. Location: Saudi Arabia (either on-site at Saudi universities or online open to students there).
-    
+
     Provide the output in a pure JSON format as an array of objects. 
     Each object MUST have keys matching these exact names:
     - "title" (string)
@@ -41,14 +41,18 @@ def fetch_and_filter_competitions():
     - "registration_link" (string)
     - "summary" (string)
     - "location" (string)
-    
+
     Ensure the output contains ONLY pure JSON text without any markdown formatting or extra characters.
     """
 
   # ==========================================
   # 3. AI CALL WITH AUTOMATIC RETRY & FALLBACK
   # ==========================================
-  models_to_try = ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.0-flash"]
+  models_to_try = [
+      "gemini-3.8-flash",
+      "gemini-2.5-flash",
+      "gemini-2.0-flash",
+  ]
   response = None
   success = False
 
@@ -59,8 +63,8 @@ def fetch_and_filter_competitions():
     for attempt in range(max_retries):
       try:
         print(
-            f"🤖 Calling Gemini AI using {model_name} (Attempt {attempt + 1}"
-            f"/{max_retries})..."
+            f"🤖 Calling Gemini AI using {model_name} (Attempt"
+            f" {attempt + 1}/{max_retries})..."
         )
         response = ai_client.models.generate_content(
             model=model_name, contents=prompt
@@ -71,18 +75,20 @@ def fetch_and_filter_competitions():
         if "503" in str(e) and attempt < max_retries - 1:
           wait_time = (attempt + 1) * 15
           print(
-              f"⚠️ Model {model_name} busy (503). Retrying in {wait_time}"
-              " seconds..."
+              f"⚠️ Model {model_name} busy (503). Retrying in"
+              f" {wait_time} seconds..."
           )
           time.sleep(wait_time)
         else:
-          print(f"⚠️ Model {model_name} failed. Trying next available model...")
+          print(
+              f"⚠️ Model {model_name} failed. Trying next available model..."
+          )
           break
 
   if not response:
     raise Exception(
-        "❌ All backup Gemini models are currently experiencing high demand"
-        " (503). Please try again later."
+        "❌ All backup Gemini models are currently experiencing high"
+        " demand (503). Please try again later."
     )
 
   # Clean the AI text response to ensure it's pure JSON
@@ -92,7 +98,10 @@ def fetch_and_filter_competitions():
 
   try:
     competitions_data = json.loads(raw_text)
-    print(f"✅ AI successfully filtered {len(competitions_data)} competitions.")
+    print(
+        "✅ AI successfully filtered"
+        f" {len(competitions_data)} competitions."
+    )
   except json.JSONDecodeError:
     print("❌ Failed to parse JSON from AI response. Raw text:")
     print(raw_text)
@@ -107,4 +116,4 @@ def fetch_and_filter_competitions():
 
 
 if __name__ == "__main__":
-  fetch_and_filter_competitions()
+  fetch_and_filter_competitions() 
